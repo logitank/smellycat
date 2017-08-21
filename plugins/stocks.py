@@ -24,9 +24,11 @@ class AAPLvsNFLX(Plugin):
         text = data.get("text", "")
         if self.has_match(text) and not self.is_rate_limited(channel):
             stocks = get_stocks("NFLX", "AAPL")
-            msg = ":nflx: {} vs. :aapl: {}".format(
-                stocks.get("NFLX", {}).get("price", "ERR"),
-                stocks.get("AAPL", {}).get("price", "ERR"))
+            aapl = stocks.get("AAPL", {})
+            nflx = stocks.get("NFLX", {})
+            msg = ":nflx: {} {} vs. :aapl: {} {}".format(
+                self.get_emoji(nflx), nflx.get("price", "ERR"),
+                self.get_emoji(aapl), aapl.get("price", "ERR"))
             self.outputs.append([channel, msg])
             self.last_announced[channel] = self.now()
 
@@ -35,6 +37,15 @@ class AAPLvsNFLX(Plugin):
         if msg and not msg.startswith("$$"):
             words = set(msg.lower().split())
             return bool(words & self.triggers)
+
+    def get_emoji(self, data):
+        change = data.get("change")
+        if change is None:
+            return ":skull_and_crossbones:"
+        elif float(change[1:]) < 0.0:
+            return ":chart_with_downwards_trend:"
+        else:
+            return ":chart_with_upwards_trend:"
 
     def is_rate_limited(self, channel):
         return self.now() - self.last_announced[channel] < self.rate_limit
@@ -78,6 +89,7 @@ def get_stocks(*symbols):
         if d["name"] == "N/A": # symbol not found
             continue
         stocks[sym] = {
+            "change": "${:.2f}".format(float(d["change"])),
             "price": "${:.2f}".format(float(d["price"])),
             "market cap": "${}".format(d["market cap"]),
             "name": d["name"]
