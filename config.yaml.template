@@ -3,4 +3,5 @@ SLACK_TOKEN: "CHANGE_ME"
 ACTIVE_PLUGINS:
   - plugins.stocks.StockPrices
   - plugins.stocks.AAPLvsNFLX
-  - plugins.neat.AutoNeat
+  - plugins.reactions.AutoNeat
+  - plugins.reactions.AutoWork
