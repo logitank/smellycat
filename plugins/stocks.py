@@ -3,8 +3,6 @@ from __future__ import unicode_literals
 
 from collections import defaultdict
 from rtmbot.core import Plugin
-from csv import DictReader
-from cStringIO import StringIO
 
 import time
 import requests
@@ -71,28 +69,21 @@ class StockPrices(Plugin):
         return msg.startswith("$$")
 
 
-# Get stock prices using Yahoo's finance API.
+# Get stock prices using IEX's free batch API.
 def get_stocks(*symbols):
-    stock_string = "+".join(map(lambda x: x.lower().replace(".", ""), symbols))
-    yahoo_url = "https://download.finance.yahoo.com/d/quotes.csv"
-    yahoo_format = ("j1"  # market cap
-                    "l1"  # price
-                    "n"   # name
-                    "c1"  # change
-                    )
-    res = requests.get(yahoo_url, params={"s": stock_string, "f": yahoo_format})
+    all_symbols = ",".join(map(lambda x: x.lower(), symbols))
+    iex_url = "https://api.iextrading.com/1.0/stock/market/batch"
+    res = requests.get(iex_url, params={ "symbols": all_symbols, "types": "quote" })
     res.raise_for_status()
-    data = DictReader(StringIO(res.content), fieldnames=["market cap", "price", "name", "change"])
     stocks = {}
 
-    for sym, d in zip(symbols, data):
-        if d["name"] == "N/A": # symbol not found
-            continue
-        stocks[sym] = {
-            "change": "${:.2f}".format(float(d["change"])),
-            "price": "${:.2f}".format(float(d["price"])),
-            "market cap": "${}".format(d["market cap"]),
-            "name": d["name"]
+    for symbol, data in res.json().iteritems():
+        quote = data["quote"]
+        stocks[symbol] = {
+            "change": "${:.2f}".format(float(quote["change"])),
+            "price": "${:.2f}".format(float(quote["latestPrice"])),
+            "market cap": "${:,}".format(quote["marketCap"]),
+            "name": quote["companyName"]
         }
 
     return stocks
