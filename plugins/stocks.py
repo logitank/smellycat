@@ -2,53 +2,48 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from collections import defaultdict
+from operator import itemgetter
 from rtmbot.core import Plugin
 
 import time
 import requests
 
-
-# A special (the original) case of our StockPrices plugin, which announces
-# AAPL and NFLX prices anytime Apple or Netflix are mentioned...
-class AAPLvsNFLX(Plugin):
+# It's an all out war!
+class StockLeaders(Plugin):
     def __init__(self, name=None, slack_client=None, plugin_config=None):
-        super(AAPLvsNFLX, self).__init__(name, slack_client, plugin_config)
+        super(StockLeaders, self).__init__(name, slack_client, plugin_config)
+        self.symbols = ["aapl", "goog", "nflx"]
+        self.triggers = {"apple", "aapl", "netflix", "nflx", "google", "goog"}
+        # Maintain per-channel cooldown to prevent spammy bot behavior/abuse.
         self.last_announced = defaultdict(int)
-        self.rate_limit = 5 # seconds
-        self.triggers = set(["apple", "aapl", "netflix", "nflx"])
+        self.rate_limit_seconds = 60
 
     def process_message(self, data):
-        channel = data.get("channel", "")
-        text = data.get("text", "")
-        if self.has_match(text) and not self.is_rate_limited(channel):
-            stocks = get_stocks("NFLX", "AAPL")
-            aapl = stocks.get("AAPL", {})
-            nflx = stocks.get("NFLX", {})
-            msg = ":nflx: {} {} vs. :aapl: {} {}".format(
-                self.get_emoji(nflx), nflx.get("price", "ERR"),
-                self.get_emoji(aapl), aapl.get("price", "ERR"))
+        channel, text = data.get("channel", ""), data.get("text", "")
+        if not self.is_rate_limited(channel) and self.has_match(text):
+            # Get the stocks and sort them by price change descending.
+            stocks = sorted(get_stocks(self.symbols), key=itemgetter("change"), reverse=True)
+            # Announce stock prices to channel and start 60 second cooldown.
+            msg = "\n".join([self.format_stock_line(s) for s in stocks])
             self.outputs.append([channel, msg])
             self.last_announced[channel] = self.now()
 
     def has_match(self, msg):
         # We ignore actual stock price queries.
         if msg and not msg.startswith("$$"):
-            words = set(msg.lower().split())
-            return bool(words & self.triggers)
-
-    def get_emoji(self, data):
-        change = data.get("change")
-        if change is None:
-            return ":skull_and_crossbones:"
-        elif float(change[1:]) < 0.0:
-            return ":chart_with_downwards_trend:"
-        else:
-            return ":chart_with_upwards_trend:"
+            # Return true if any of these words are a trigger.
+            trigger_matches = set(msg.lower().split()) & self.triggers
+            return bool(trigger_matches)
 
     def is_rate_limited(self, channel):
-        return self.now() - self.last_announced[channel] < self.rate_limit
+        return self.now() - self.last_announced[channel] < self.rate_limit_seconds
 
-    def now(self):
+    @staticmethod
+    def format_stock_line(stock):
+        return "> :{symbol}: `{price: >8,.2f} {change: >+6.2f}`".format(**stock)
+
+    @staticmethod
+    def now():
         return int(time.time())
 
 
@@ -58,32 +53,38 @@ class StockPrices(Plugin):
         channel = data.get("channel", "")
         text = data.get("text", "")
         if self.has_match(text):
-            symbols = [sym.upper() for sym in text[2:].split()]
-            stocks = get_stocks(*symbols)
-            msg = "\n".join([
-                "{name}: {price}, {market cap}".format(**stock)
-                for stock in stocks.values()])
+            # Fetch and sort stocks by market cap, descending.
+            symbols = text[2:].split()
+            stocks = sorted(get_stocks(symbols), key=itemgetter("market_cap"), reverse=True)
+            # Announce these ordered stock prices to the channel.
+            msg = "\n".join([self.format_stock_line(s) for s in stocks])
             self.outputs.append([channel, msg])
 
-    def has_match(self, msg):
+    @staticmethod
+    def has_match(msg):
         return msg.startswith("$$")
 
+    @staticmethod
+    def format_stock_line(stock):
+        return "> `{market_cap: >17,.0f} {price: >8,.2f}` {name}".format(**stock)
 
-# Get stock prices using IEX's free batch API.
-def get_stocks(*symbols):
-    all_symbols = ",".join(map(lambda x: x.lower(), symbols))
+
+# Get stock price info for a list of stock symbols.
+def get_stocks(symbols):
+    # Fetch from IEX free batch API.
     iex_url = "https://api.iextrading.com/1.0/stock/market/batch"
-    res = requests.get(iex_url, params={ "symbols": all_symbols, "types": "quote" })
+    res = requests.get(iex_url, params={"symbols": ",".join(symbols), "types": "quote"})
     res.raise_for_status()
-    stocks = {}
-
-    for symbol, data in res.json().iteritems():
-        quote = data["quote"]
-        stocks[symbol] = {
-            "change": "${:.2f}".format(float(quote["change"])),
-            "price": "${:.2f}".format(float(quote["latestPrice"])),
-            "market cap": "${:,}".format(quote["marketCap"]),
-            "name": quote["companyName"]
+    # Parse JSON response to a list of dicts for each symbol.
+    quotes = res.json().items()
+    stocks = [
+        {
+            "symbol": symbol.lower(),
+            "name": data["quote"]["companyName"],
+            "price": data["quote"]["latestPrice"],
+            "market_cap": data["quote"]["marketCap"],
+            "change": data["quote"]["change"],
         }
-
+        for symbol, data in quotes
+    ]
     return stocks
