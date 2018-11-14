@@ -1,7 +1,7 @@
 DEBUG: True
 SLACK_TOKEN: "CHANGE_ME" 
 ACTIVE_PLUGINS:
-  - plugins.stocks.StockLeaders
-  - plugins.stocks.StockPrices
-  - plugins.reactions.AutoNeat
-  - plugins.reactions.AutoWork
+  - smellycat.plugins.stocks.StockLeaders
+  - smellycat.plugins.stocks.StockPrices
+  - smellycat.plugins.reactions.AutoNeat
+  - smellycat.plugins.reactions.AutoWork

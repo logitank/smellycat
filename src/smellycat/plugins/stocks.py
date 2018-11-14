@@ -1,12 +1,9 @@
-from __future__ import print_function
-from __future__ import unicode_literals
+import time
+import requests
 
 from collections import defaultdict
 from operator import itemgetter
 from rtmbot.core import Plugin
-
-import time
-import requests
 
 # It's an all out war!
 class StockLeaders(Plugin):

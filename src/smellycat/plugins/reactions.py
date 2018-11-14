@@ -1,8 +1,6 @@
-from __future__ import print_function
-from __future__ import unicode_literals
-from rtmbot.core import Plugin
-
 import re
+
+from rtmbot.core import Plugin
 
 
 class AutoReaction(Plugin):
