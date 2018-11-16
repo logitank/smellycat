@@ -1,7 +1,7 @@
-FROM python:2.7-alpine
+FROM python:3.7-alpine
 
-WORKDIR /usr/src/smellycat
-COPY . .
+COPY . /smellycat
+WORKDIR /smellycat
+RUN pip install .
 
-RUN pip install --no-cache-dir -r requirements.txt
-CMD [ "python", "./bot.py" ]
+CMD [ "smellycat" ]
