@@ -19,7 +19,7 @@ class StockLeaders(Plugin):
         channel, text = data.get("channel", ""), data.get("text", "")
         if not self.is_rate_limited(channel) and self.has_match(text):
             # Get the stocks and sort them by price change descending.
-            stocks = sorted(get_stocks(self.symbols), key=itemgetter("change"), reverse=True)
+            stocks = sorted(get_stocks(self.symbols), key=itemgetter("change_pct"), reverse=True)
             # Announce stock prices to channel and start 60 second cooldown.
             msg = "\n".join([self.format_stock_line(s) for s in stocks])
             self.outputs.append([channel, msg])
@@ -37,7 +37,7 @@ class StockLeaders(Plugin):
 
     @staticmethod
     def format_stock_line(stock):
-        return "> :{symbol}: `{price: >8,.2f} {change: >+6.2f}`".format(**stock)
+        return "> :{symbol}: _{change_pct:+0.5f}_ at ${price:,.2f}".format(**stock)
 
     @staticmethod
     def now():
@@ -63,7 +63,7 @@ class StockPrices(Plugin):
 
     @staticmethod
     def format_stock_line(stock):
-        return "> `{market_cap: >17,.0f} {price: >8,.2f}` {name}".format(**stock)
+        return "> {name}, at ${price:,.2f}, total ${market_cap:,.0f}".format(**stock)
 
 
 # Get stock price info for a list of stock symbols.
@@ -80,7 +80,7 @@ def get_stocks(symbols):
             "name": data["quote"]["companyName"],
             "price": data["quote"]["latestPrice"],
             "market_cap": data["quote"]["marketCap"],
-            "change": data["quote"]["change"],
+            "change_pct": data["quote"]["changePercent"],
         }
         for symbol, data in quotes
     ]
