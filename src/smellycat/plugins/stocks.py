@@ -37,7 +37,7 @@ class StockLeaders(Plugin):
 
     @staticmethod
     def format_stock_line(stock):
-        return "> :{symbol}: _{change_pct:+0.5f}_ at ${price:,.2f}".format(**stock)
+        return "> :{symbol}: _{change_pct:+0.3%}_ at ${price:,.2f}".format(**stock)
 
     @staticmethod
     def now():
