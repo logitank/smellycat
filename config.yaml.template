@@ -5,3 +5,7 @@ ACTIVE_PLUGINS:
   - smellycat.plugins.stocks.StockPrices
   - smellycat.plugins.reactions.AutoNeat
   - smellycat.plugins.reactions.AutoWork
+StockPrices:
+  IEX_TOKEN: "CHANGE_ME"
+StockLeaders:
+  IEX_TOKEN: "CHANGE_ME"

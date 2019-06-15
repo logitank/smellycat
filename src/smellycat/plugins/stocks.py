@@ -11,6 +11,7 @@ class StockLeaders(Plugin):
         super(StockLeaders, self).__init__(name, slack_client, plugin_config)
         self.symbols = ["aapl", "goog", "nflx"]
         self.triggers = {"apple", "aapl", "netflix", "nflx", "google", "goog"}
+        self.token = plugin_config.get("IEX_TOKEN", None)
         # Maintain per-channel cooldown to prevent spammy bot behavior/abuse.
         self.last_announced = defaultdict(int)
         self.rate_limit_seconds = 60
@@ -19,7 +20,7 @@ class StockLeaders(Plugin):
         channel, text = data.get("channel", ""), data.get("text", "")
         if not self.is_rate_limited(channel) and self.has_match(text):
             # Get the stocks and sort them by price change descending.
-            stocks = sorted(get_stocks(self.symbols), key=itemgetter("change_pct"), reverse=True)
+            stocks = sorted(get_stocks(self.token, self.symbols), key=itemgetter("change_pct"), reverse=True)
             # Announce stock prices to channel and start 60 second cooldown.
             msg = "\n".join([self.format_stock_line(s) for s in stocks])
             self.outputs.append([channel, msg])
@@ -46,13 +47,17 @@ class StockLeaders(Plugin):
 
 # Handle stock price requests of the form "$$ SYMBOL1 SYMBOL2 ...".
 class StockPrices(Plugin):
+    def __init__(self, name=None, slack_client=None, plugin_config=None):
+        super(StockPrices, self).__init__(name, slack_client, plugin_config)
+        self.token = plugin_config.get("IEX_TOKEN", None)
+
     def process_message(self, data):
         channel = data.get("channel", "")
         text = data.get("text", "")
         if self.has_match(text):
             # Fetch and sort stocks by market cap, descending.
             symbols = text[2:].split()
-            stocks = sorted(get_stocks(symbols), key=itemgetter("market_cap"), reverse=True)
+            stocks = sorted(get_stocks(self.token, symbols), key=itemgetter("market_cap"), reverse=True)
             # Announce these ordered stock prices to the channel.
             msg = "\n".join([self.format_stock_line(s) for s in stocks])
             self.outputs.append([channel, msg])
@@ -67,10 +72,13 @@ class StockPrices(Plugin):
 
 
 # Get stock price info for a list of stock symbols.
-def get_stocks(symbols):
-    # Fetch from IEX free batch API.
-    iex_url = "https://api.iextrading.com/1.0/stock/market/batch"
-    res = requests.get(iex_url, params={"symbols": ",".join(symbols), "types": "quote"})
+def get_stocks(token, symbols):
+    # Fetch from IEX cloud batch API.
+    iex_url = "https://cloud.iexapis.com/stable/stock/market/batch"
+    res = requests.get(iex_url, params={
+        "symbols": ",".join(symbols),
+        "types": "quote",
+        "token": token})
     res.raise_for_status()
     # Parse JSON response to a list of dicts for each symbol.
     quotes = res.json().items()
