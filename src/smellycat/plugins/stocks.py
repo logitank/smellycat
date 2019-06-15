@@ -68,7 +68,7 @@ class StockPrices(Plugin):
 
     @staticmethod
     def format_stock_line(stock):
-        return "> {name}, at ${price:,.2f}, total ${market_cap:,.0f}".format(**stock)
+        return "> {name}, _{change_pct:+0.3%}_ at ${price:,.2f}, total ${market_cap:,.0f}".format(**stock)
 
 
 # Get stock price info for a list of stock symbols.
